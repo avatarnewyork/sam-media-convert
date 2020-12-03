@@ -23,12 +23,15 @@ Parameters:
     AdditionalBucketName:
       Type: String
       Default: "BLANK"
-    JobTemplateName:
-      Type: String
-      Default: h265toh264
     DestinationRelativePath:
       Type: String
       Default: ""
+    UploadPrefix:
+      Type: String
+      Default: uploads/unprocessed
+    JobTemplateName:
+      Type: String
+      Default: h265toh264
     Timeout:
       Type: Number
       Default: 300
@@ -91,7 +94,7 @@ Resources:
               S3Key:
                 Rules:
                   - Name: prefix
-                    Value: uploads/unprocessed
+                    Value: !Ref UploadPrefix
             #      - Name: suffix
             #        Value: .csv
   
