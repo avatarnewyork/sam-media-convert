@@ -120,8 +120,3 @@ workflows:
           filters:
             tags:
               only: /.*/
-            branches:
-              only:
-                - stage
-                - circleci
-                - master
