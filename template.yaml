@@ -9,10 +9,12 @@ Metadata:
     Name: sam-media-convert
     Description: run a media convert job on a s3 file upload event
     Author: patrick tully
-    #ReadmeUrl: README.md
+    ReadmeUrl: README.md
     Labels: ['mediaconvert','s3']
     #SemanticVersion: 0.0.8
     SourceCodeUrl: https://github.com/avatarnewyork/sam-media-convert
+    HomePageUrl: https://github.com/avatarnewyork/sam-media-convert
+    LicenseUrl: LICENSE.txt
   
 Parameters:
     BucketName:
