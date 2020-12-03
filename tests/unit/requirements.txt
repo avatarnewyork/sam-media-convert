@@ -1,3 +1,4 @@
 Autologging
 pytest
 boto3
+moto
