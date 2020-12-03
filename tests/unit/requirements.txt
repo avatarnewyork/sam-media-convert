@@ -1,0 +1,3 @@
+Autologging
+pytest
+boto3
