@@ -78,7 +78,7 @@ jobs:
               equal: ["", $CIRCLE_TAG]
           steps:
             - run: echo "stage"
-            - run: sam package --s3-bucket=avatar-sam-stage --s3-prefix=sam-media-convert --template-file=template.yaml --output-template-file=packaged.yaml --profile=default --region=us-west-2 --metadata SemanticVersion=$CIRCLE_TAG
+            - run: sam package --s3-bucket=$S3_BUCKET --s3-prefix=sam-media-convert --template-file=template.yaml --output-template-file=packaged.yaml --profile=default --region=us-west-2 --metadata SemanticVersion=$CIRCLE_TAG
             - run: sam publish --template-file packaged.yaml --profile=default --region=us-west-2 --semantic-version=$CIRCLE_TAG              
             - run: mkdir -p package_artifacts && cp packaged*.yaml package_artifacts
             - store_artifacts:
