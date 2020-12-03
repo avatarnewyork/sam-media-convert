@@ -23,12 +23,12 @@ Parameters:
     AdditionalBucketName:
       Type: String
       Default: "BLANK"
+    UploadPrefix:
+      Type: String
+      Default: uploads/unprocessed      
     DestinationRelativePath:
       Type: String
       Default: ""
-    UploadPrefix:
-      Type: String
-      Default: uploads/unprocessed
     JobTemplateName:
       Type: String
       Default: h265toh264

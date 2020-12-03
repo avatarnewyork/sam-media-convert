@@ -6,8 +6,11 @@ Workflow to run a MediaCovert job on an newly created s3 file.  The original fil
 ## Parameters
 * BucketName: the name of the bucket.  For example, if the bucket you choose is: `s3://media-convert/` - the BucketName will be `media-convert`.
 * AddtionalBucketName: (optional) if you want to add a 2nd bucket.  Note, you will need to manually add the trigger to the s3 bucket if you wish to use this feature.  Just copy the same s3 event trigger defined by the original bucket.  This gives you the ability to run mediaconvert jobs in a previously created bucket (managed outside of the sam app).
+* UploadPrefix: bucket prefix to use as trigger.  Any files created here will trigger 
+* DestinationRelativePath: will store the resulting mediaconvert file in this 
 * JobTemplateName: the name of the MediaConvert template you created in the MediaConvert service.  For more information, see: https://docs.aws.amazon.com/mediaconvert/latest/ug/creating-template-from-scratch.html
-* DestinationRelativePath: will store the resulting mediaconvert file in this relative directory.  If you wish it to be inside the same directory, leave this blank.
+relative directory.  If you wish it to be inside the same directory, leave this blank.
+the mediaconvert job
 * Timeout: the number of seconds to set the lambda timeout.  Default is set to 300 seconds.  Max value permitted by lambda is 900 seconds.
 
 ## Caveats
