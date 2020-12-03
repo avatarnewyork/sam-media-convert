@@ -1,0 +1,235 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  sam-media-convert
+  run a media convert job on a s3 file upload event
+
+Metadata:
+  AWS::ServerlessRepo::Application:
+    Name: sam-media-convert
+    Description: run a media convert job on a s3 file upload event
+    Author: patrick tully
+    #ReadmeUrl: README.md
+    Labels: ['mediaconvert','s3']
+    #SemanticVersion: 0.0.8
+    SourceCodeUrl: https://github.com/avatarnewyork/sam-media-convert
+  
+Parameters:
+    BucketName:
+      Type: String
+      Default: "media-convert"
+    AdditionalBucketName:
+      Type: String
+      Default: "BLANK"
+    JobTemplateName:
+      Type: String
+      Default: h265toh264
+    DestinationRelativePath:
+      Type: String
+      Default: ""
+    Timeout:
+      Type: Number
+      Default: 300
+      MaxValue: 900
+      
+Globals:
+  Function:
+    Timeout: !Ref Timeout
+
+Resources:
+  MediaConvertFunction:
+    Type: AWS::Serverless::Function 
+    Properties:
+      CodeUri: media_convert/
+      Handler: app.lambda_handler
+      Runtime: python3.7
+      Environment:
+        Variables:
+          JOB_TEMPLATE_NAME: !Ref JobTemplateName
+          ROLE_ARN: !GetAtt MediaConvertDefaultRole.Arn
+          DESTINATION_RELATIVE_PATH: !Ref DestinationRelativePath
+      Policies:
+        - Statement:
+            - Sid: MediaConvertS3Policy
+              Effect: Allow
+              Action:
+                - s3:*
+              Resource: !Sub "arn:aws:s3:::${BucketName}/*"
+        - Statement:
+            - Sid: MediaConvertPolicy
+              Effect: Allow
+              Action:
+                - mediaconvert:*
+              Resource: "*"
+        - Statement:
+            - Sid: MediaConvertAssumeRole
+              Effect: Allow
+              Action:
+                - sts:AssumeRole
+                - iam:PassRole
+              Resource: !GetAtt MediaConvertDefaultRole.Arn              
+        - Statement:
+            - Sid: MediaConvertCloudwatch
+              Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource: "*"                              
+        - AmazonAPIGatewayInvokeFullAccess
+        - AWSElementalMediaConvertReadOnly        
+      Events:
+        BucketEvent:
+          Type: S3
+          Role: !GetAtt MediaConvertDefaultRole.Arn
+          Properties:
+            Bucket: !Ref MediaConvertBucket # bucket must be created in the same template
+            Events: s3:ObjectCreated:*
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: uploads/unprocessed
+            #      - Name: suffix
+            #        Value: .csv
+  
+
+  MediaConvertCleanupFunction:
+    Type: AWS::Serverless::Function 
+    Properties:
+      CodeUri: media_convert/
+      Handler: cleanup.lambda_handler
+      Runtime: python3.7
+      Environment:
+        Variables:
+          ROLE_ARN: !GetAtt MediaConvertDefaultRole.Arn          
+      Policies:
+        - Statement:
+            - Sid: MediaConvertS3Policy
+              Effect: Allow
+              Action:
+                - s3:*
+              Resource:
+                - !Sub "arn:aws:s3:::${BucketName}/*"
+                - !Sub "arn:aws:s3:::${AdditionalBucketName}/*"                
+        - Statement:
+            - Sid: MediaConvertPolicy
+              Effect: Allow
+              Action:
+                - mediaconvert:*
+              Resource: "*"
+        - Statement:
+            - Sid: MediaConvertAssumeRole
+              Effect: Allow
+              Action:
+                - sts:AssumeRole
+                - iam:PassRole
+              Resource: !GetAtt MediaConvertDefaultRole.Arn              
+        - Statement:
+            - Sid: MediaConvertCloudwatch
+              Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource: "*"                              
+        - AmazonAPIGatewayInvokeFullAccess
+        - AWSElementalMediaConvertReadOnly        
+      Events:
+        EBRule:
+          Type: EventBridgeRule
+          Properties:
+            Pattern:
+              source:
+                - "aws.mediaconvert"
+              detail-type:
+                - "MediaConvert Job State Change"
+              detail:            
+                status:
+                  - "COMPLETE"
+          
+
+  MediaConvertDefaultRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        #- PolicyName: MediaConvertFunctionTrustPolicy
+        #  PolicyDocument:
+        Version: 2012-10-17        
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+              - mediaconvert.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+        - arn:aws:iam::aws:policy/AmazonAPIGatewayInvokeFullAccess
+        - arn:aws:iam::aws:policy/AWSElementalMediaConvertReadOnly
+      
+  MediaConvertCleanupFunctionInvokePermission:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      Action: 'lambda:InvokeFunction'
+      FunctionName: !Ref MediaConvertCleanupFunction
+      Principal: events.amazonaws.com
+      SourceArn:
+        Fn::GetAtt: 
+        - "MediaConvertEventRule"
+        - "Arn"
+
+        
+  MediaConvertBucket:
+    Type: AWS::S3::Bucket
+#    DeletionPolicy: Retain
+#    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Ref BucketName
+
+  MediaConvertEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      State: "ENABLED"
+      EventPattern:
+        source:
+          - "aws.mediaconvert"
+        detail-type:
+          - "MediaConvert Job State Change"
+        detail:            
+          status:
+            - "COMPLETE"
+      Targets:
+        -
+          Arn:
+            Fn::GetAtt: 
+              - "MediaConvertCleanupFunction"
+              - "Arn"
+          Id: "InvokeMediaConvertCleanupFunction"
+            
+        
+    
+Outputs:
+  MediaConvertFunction:
+    Description: "MediaConvert Function ARN"
+    Value: !GetAtt MediaConvertFunction.Arn
+  MediaConvertCleanupFunction:
+    Description: "MediaConvertCleanup Function ARN"
+    Value: !GetAtt MediaConvertCleanupFunction.Arn
+  MediaConvertDefaultRole:
+    Description: "MediaConvertDefaultRole"
+    Value: !GetAtt MediaConvertDefaultRole.Arn
+  #MediaConvertFunctionIamRole:
+  #  Description: "Implicit IAM Role created for MediaConvert function"
+  #  Value: !GetAtt MediaConvertFunctionRole.Arn
+  MediaConvertBucket:
+    Description: Bucket that was created
+    Value: !Ref MediaConvertBucket
+    Export:
+      Name: !Ref BucketName
+  MediaConvertEventRule:
+    Description: event rule aws.mediaconvert is complete
+    Value: !GetAtt MediaConvertEventRule.Arn
+  MediaConvertCleanupFunctionInvokePermission:
+    Description: event rule permission
+    Value: !Ref MediaConvertCleanupFunctionInvokePermission
